@@ -32,7 +32,8 @@ go run ./cmd/rst sync-data \
   -provider auto \
   -universe data/universe/ai_tech.csv \
   -out data/live \
-  -start 20240101
+  -start 20240101 \
+  -verbose
 
 go run ./cmd/rst report -data data/live
 ```
@@ -53,6 +54,21 @@ The Go engine reads the same files for fixture, CSV, and real-data runs:
 - `market_breadth.csv`
 
 This keeps data acquisition separate from strategy scoring.
+
+## Troubleshooting
+
+If `pip install` succeeds but `sync-data` reports an import problem, the Go command may be using a different Python executable from the one used by `pip`.
+
+```bash
+python3 -c "import sys, akshare, baostock; print(sys.executable); print(akshare.__version__)"
+go run ./cmd/rst sync-data -verbose
+```
+
+The verbose mode prints the Python executable, package versions, package paths, and per-symbol fetch progress. If needed, pass the interpreter explicitly:
+
+```bash
+go run ./cmd/rst sync-data -python /path/to/python3 -verbose
+```
 
 ## Trading boundary
 
