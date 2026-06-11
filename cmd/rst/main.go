@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/waytofree-yang/right-side-trading/internal/data"
@@ -27,9 +28,7 @@ func run(args []string) error {
 	case "report", "score":
 		return runReport(args[2:])
 	case "sync-data":
-		fmt.Println("sync-data is a provider hook. The MVP uses local CSV files or the built-in fixture dataset.")
-		fmt.Println("Expected files: universe.csv, bars.csv, fundamentals.csv, market_breadth.csv")
-		return nil
+		return runSyncData(args[2:])
 	case "backtest":
 		fmt.Println("backtest command is reserved for the next iteration. The strategy modules are unit-tested and report-ready.")
 		return nil
@@ -68,6 +67,39 @@ func runReport(args []string) error {
 	return report.Write(writer, result, report.Format(strings.ToLower(*format)))
 }
 
+func runSyncData(args []string) error {
+	fs := flag.NewFlagSet("sync-data", flag.ContinueOnError)
+	provider := fs.String("provider", "auto", "data provider: auto, akshare, baostock")
+	universe := fs.String("universe", "data/universe/ai_tech.csv", "CSV universe definition")
+	out := fs.String("out", "data/live", "output directory for generated CSV data")
+	start := fs.String("start", "", "start date: YYYYMMDD or YYYY-MM-DD; default is about 420 days ago")
+	end := fs.String("end", "", "end date: YYYYMMDD or YYYY-MM-DD; default is today")
+	adjust := fs.String("adjust", "qfq", "price adjustment: qfq, hfq, none")
+	python := fs.String("python", "python3", "Python executable with akshare/baostock installed")
+	script := fs.String("script", "scripts/sync_market_data.py", "market data sync script")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	cmdArgs := []string{
+		*script,
+		"--provider", *provider,
+		"--universe", *universe,
+		"--out", *out,
+		"--adjust", *adjust,
+	}
+	if *start != "" {
+		cmdArgs = append(cmdArgs, "--start", *start)
+	}
+	if *end != "" {
+		cmdArgs = append(cmdArgs, "--end", *end)
+	}
+	cmd := exec.Command(*python, cmdArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func loadDataSet(dir string) (domain.DataSet, error) {
 	if dir == "" {
 		return data.FixtureProvider{}.Load()
@@ -79,7 +111,7 @@ func usage() error {
 	fmt.Println("Usage:")
 	fmt.Println("  rst report [-data DIR] [-format markdown|csv|html] [-out FILE]")
 	fmt.Println("  rst score  [-data DIR] [-format csv|markdown|html]")
-	fmt.Println("  rst sync-data")
+	fmt.Println("  rst sync-data [-provider auto|akshare|baostock] [-universe FILE] [-out DIR] [-start YYYYMMDD] [-end YYYYMMDD]")
 	fmt.Println("  rst backtest")
 	return nil
 }

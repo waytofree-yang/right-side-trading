@@ -1,3 +1,6 @@
 .cache/
 report.html
 *.out
+.DS_Store
+__pycache__/
+data/live/
