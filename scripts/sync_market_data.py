@@ -12,9 +12,11 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import importlib
 import json
 import math
 import sys
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -91,12 +93,19 @@ def main() -> int:
     bars: list[dict[str, str]] = []
     fundamentals: list[dict[str, str]] = []
 
+    if args.verbose:
+        print(f"python executable: {sys.executable}", file=sys.stderr)
+        print(f"python version: {sys.version.split()[0]}", file=sys.stderr)
+        print(f"provider: {args.provider}", file=sys.stderr)
+        print(f"universe: {args.universe}", file=sys.stderr)
+        print(f"output: {out_dir}", file=sys.stderr)
+
     ak = None
     bs = None
     if args.provider in {"auto", "akshare"}:
-        ak = import_optional("akshare")
+        ak = import_optional("akshare", args.verbose)
     if args.provider in {"auto", "baostock"}:
-        bs = import_optional("baostock")
+        bs = import_optional("baostock", args.verbose)
 
     baostock_logged_in = False
     if bs is not None:
@@ -108,11 +117,18 @@ def main() -> int:
 
     try:
         for security in securities:
+            if args.verbose:
+                print(
+                    f"sync {security.symbol} {security.name} ({security.kind}) via {effective_provider(security, args.provider)}",
+                    file=sys.stderr,
+                )
             try:
                 rows = fetch_bars(security, start, end, args.provider, ak, bs, args.adjust)
             except Exception as exc:  # noqa: BLE001 - collect per-symbol sync errors
                 errors.append(f"{security.symbol} {security.name}: {exc}")
                 continue
+            if args.verbose:
+                print(f"  fetched {len(rows)} bars", file=sys.stderr)
             bars.extend(rows)
 
             if security.kind == "Stock":
@@ -143,6 +159,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start", default=one_year_ago())
     parser.add_argument("--end", default="")
     parser.add_argument("--adjust", choices=["qfq", "hfq", "none"], default="qfq")
+    parser.add_argument("--verbose", action="store_true", help="print Python environment and per-symbol sync details")
     return parser.parse_args()
 
 
@@ -157,13 +174,43 @@ def normalize_date(value: str) -> str:
     return value
 
 
-def import_optional(name: str):
+def import_optional(name: str, verbose: bool = False):
     try:
-        return __import__(name)
+        module = importlib.import_module(name)
+        if verbose:
+            version = getattr(module, "__version__", "unknown")
+            location = getattr(module, "__file__", "unknown")
+            print(f"loaded {name} {version} from {location}", file=sys.stderr)
+        return module
+    except ModuleNotFoundError as exc:
+        if exc.name == name:
+            raise SystemExit(
+                f"missing Python package {name}; install with: {sys.executable} -m pip install -r requirements-data.txt"
+            ) from exc
+        message = (
+            f"Python package {name} is installed, but one of its dependencies is missing: {exc.name}.\n"
+            f"Python executable: {sys.executable}\n"
+            f"Fix with: {sys.executable} -m pip install -r requirements-data.txt"
+        )
+        if verbose:
+            message += "\n\n" + traceback.format_exc()
+        raise SystemExit(message) from exc
     except ImportError as exc:
-        raise SystemExit(
-            f"missing Python package {name}; install with: python3 -m pip install -r requirements-data.txt"
-        ) from exc
+        message = (
+            f"Python package {name} failed while importing.\n"
+            f"Python executable: {sys.executable}\n"
+            f"Import error: {exc}\n"
+            f"Try: {sys.executable} -m pip install -r requirements-data.txt"
+        )
+        if verbose:
+            message += "\n\n" + traceback.format_exc()
+        raise SystemExit(message) from exc
+
+
+def effective_provider(security: Security, provider: str) -> str:
+    if provider != "auto":
+        return provider
+    return security.source
 
 
 def read_universe(path: Path) -> list[Security]:

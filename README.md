@@ -37,7 +37,8 @@ go run ./cmd/rst sync-data \
   -provider auto \
   -universe data/universe/ai_tech.csv \
   -out data/live \
-  -start 20240101
+  -start 20240101 \
+  -verbose
 ```
 
 Analyze the synced data:
@@ -51,6 +52,19 @@ Provider behavior:
 - `auto`: use Baostock for A-share stock/index history when possible, AKShare for ETF/index/fundamental coverage.
 - `akshare`: force AKShare for all supported symbols.
 - `baostock`: force Baostock for supported A-share stock/index history.
+
+If package imports fail even after installation, check the exact Python used by Go:
+
+```bash
+python3 -c "import sys, akshare, baostock; print(sys.executable); print(akshare.__version__)"
+go run ./cmd/rst sync-data -verbose
+```
+
+You can force the same interpreter explicitly:
+
+```bash
+go run ./cmd/rst sync-data -python /path/to/python3 -verbose
+```
 
 ## Commands
 

@@ -77,6 +77,7 @@ func runSyncData(args []string) error {
 	adjust := fs.String("adjust", "qfq", "price adjustment: qfq, hfq, none")
 	python := fs.String("python", "python3", "Python executable with akshare/baostock installed")
 	script := fs.String("script", "scripts/sync_market_data.py", "market data sync script")
+	verbose := fs.Bool("verbose", false, "print Python environment and per-symbol sync details")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -93,6 +94,9 @@ func runSyncData(args []string) error {
 	}
 	if *end != "" {
 		cmdArgs = append(cmdArgs, "--end", *end)
+	}
+	if *verbose {
+		cmdArgs = append(cmdArgs, "--verbose")
 	}
 	cmd := exec.Command(*python, cmdArgs...)
 	cmd.Stdout = os.Stdout
@@ -111,7 +115,7 @@ func usage() error {
 	fmt.Println("Usage:")
 	fmt.Println("  rst report [-data DIR] [-format markdown|csv|html] [-out FILE]")
 	fmt.Println("  rst score  [-data DIR] [-format csv|markdown|html]")
-	fmt.Println("  rst sync-data [-provider auto|akshare|baostock] [-universe FILE] [-out DIR] [-start YYYYMMDD] [-end YYYYMMDD]")
+	fmt.Println("  rst sync-data [-provider auto|akshare|baostock] [-universe FILE] [-out DIR] [-start YYYYMMDD] [-end YYYYMMDD] [-verbose]")
 	fmt.Println("  rst backtest")
 	return nil
 }

@@ -31,6 +31,7 @@ func TestRunSyncDataPassesArgumentsToScript(t *testing.T) {
 		"-start", "20240101",
 		"-end", "20240601",
 		"-adjust", "qfq",
+		"-verbose",
 	})
 	if err != nil {
 		t.Fatalf("sync-data returned error: %v", err)
@@ -49,6 +50,7 @@ func TestRunSyncDataPassesArgumentsToScript(t *testing.T) {
 		"--start\n20240101",
 		"--end\n20240601",
 		"--adjust\nqfq",
+		"--verbose",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected recorded args to contain %q, got:\n%s", want, got)
